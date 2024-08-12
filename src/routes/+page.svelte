@@ -8,6 +8,19 @@
 	let email: string = '';
 	let password: string = '';
 
+	// Check Auth Status on Page Load
+	async function checkAuthStatus() {
+		const { data: { session } } = await supabase.auth.getSession();
+		isLoggedIn = !!session;
+		if (isLoggedIn) {
+			console.log("User is logged in");
+		} else {
+			console.log("User is not logged in");
+		}
+	}
+
+	checkAuthStatus();
+
 	// Login Function
 	async function handleLogin() {
 		try {
@@ -27,38 +40,61 @@
 			console.error('Unexpected error:', error);
 		}
 	}
-	
-	// Logout Function
+
+	// Sign in with GitHub
+	async function signInWithGithub() {
+		const { data, error } = await supabase.auth.signInWithOAuth({
+			provider: 'github',
+		});
+
+		if (error) {
+			errorMessage = `GitHub login failed: ${error.message}`;
+			console.error('GitHub login error:', error);
+			return;
+		}
+
+		isLoggedIn = true;
+		errorMessage = 'GitHub login successful';
+		console.log('GitHub login successful');
+	}
+
+		// Logout Function
 	async function handleLogout() {
 		try {
 			await supabase.auth.signOut();
 			isLoggedIn = false;
 			products = [];
 			errorMessage = 'Logged out successfully.';
+
+			// Clear any local storage data to ensure the session is forgotten
+			localStorage.removeItem('supabase.auth.token');
+
+			console.log('Logout successful, GitHub session cleared');
 		} catch (error) {
-			`Error logging out: ${(error as Error).message || 'Unknown error'}`;
+			errorMessage = `Error logging out: ${(error as Error).message || 'Unknown error'}`;
 			console.error('Logout error:', error);
 		}
 	}
-	
+
+
 	// Fetching Products Function
 	async function getProducts() {
 		if (!isLoggedIn) {
 			errorMessage = 'You must be logged in to view the inventory';
 			return;
 		}
-		
+
 		try {
 			const { data, error } = await supabase
 				.from('Products')
 				.select('*');
-			
+
 			if (error) {
 				errorMessage = `Error fetching products: ${error.message}`;
 				console.error('Error fetching products:', error);
 				return;
 			}
-			
+
 			products = data;
 			console.log('Products data:', data);
 		} catch (error) {
@@ -68,6 +104,7 @@
 	}
 </script>
 
+
   <!-- Tailwind -->
 <div class="container h-full mx-auto flex justify-center items-center">
 	<div class="login-box">
@@ -75,7 +112,8 @@
 		<input type="email" bind:value={email} placeholder="Email" required>
 		<input type="password" bind:value={password} placeholder="Password" required>
 		{#if !isLoggedIn}
-		  <button type="submit" class="btn variant-filled">Login</button>
+		  <button type="submit" class="btn variant-filled">Login with Email</button>
+		  <button type="button" class="btn variant-filled" on:click={signInWithGithub}>Login with GitHub</button>
 		  <button type="button" class="btn variant-filled" on:click={getProducts}>View Inventory</button>
 		{/if}
 		{#if isLoggedIn}
